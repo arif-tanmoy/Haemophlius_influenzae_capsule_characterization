@@ -3,7 +3,8 @@
 import sys
 from Bio import SeqIO
 from Bio.Seq import Seq
-from Bio.Alphabet import IUPAC
+#from Bio.Alphabet import IUPAC		#deprecated
+from Bio.SeqRecord import SeqRecord
 import os
 import re
 import json
@@ -237,9 +238,9 @@ def analyze_blast(results,input_file,seq_dict):
 								edge_match = True
 							else:
 								edge_match = False														
-							if a_num["strand"] is "+":
+							if a_num["strand"] == "+":
 								qseq = seq_dict[input_file]["contigs"][contig]["seq"][start-1:end]
-							if a_num["strand"] is "-":												
+							if a_num["strand"] == "-":												
 								qseq = seq_dict[input_file]["contigs"][contig]["seq"][start-1:end].reverse_complement()						
 							if (current_identity < ident_cutoff or current_cov < cov_cutoff) and not edge_match:
 								#~ if allele in allele_exceptions:
@@ -505,7 +506,6 @@ def analyze_results(results_dict,threads):
 				if (q%500) == 0:
 						print("Completed {} so far".format(str(q)))
 		
-		
 	print("Compiling results")
 	for in_file in results_dict:	
 		for contig in results_dict[in_file]["contigs"]:
@@ -523,15 +523,20 @@ def analyze_results(results_dict,threads):
 							cov = hit["cov"]
 							allele_id = hit["allele_id"]	
 							sequence = qseq
-							DNA_flag = True						
+							DNA_flag = True
+							#print(len(sequence))
+							if len(sequence) % 3 != 0:
+								sequence = sequence[:len(sequence) - (len(sequence) % 3)]
+							#print(len(sequence))
 							if identity < 100.0:
 								for letter in sequence:
 									if letter not in DNA:
 										DNA_flag = False
 										break
 								if DNA_flag:							
-									seq_obj = Seq(sequence, IUPAC.unambiguous_dna)
-								hit["flags"] = []					
+									#print(sequence)
+									seq_obj = SeqRecord(Seq(sequence), id = allele_id)
+								hit["flags"] = []
 								hit["new"] = True
 								hit["allele_id"] = "new_allele_similar_to_{}_identity({})%_cov({})%".format(allele_id,identity,round(cov*100,2))
 							elif edge_match:
@@ -549,7 +554,7 @@ def analyze_results(results_dict,threads):
 											DNA_flag = False
 											break
 								if DNA_flag:						
-									seq_obj = Seq(sequence, IUPAC.unambiguous_dna)
+									seq_obj = SeqRecord(Seq(sequence), id = allele_id)
 									
 							if not edge_match and DNA_flag and sequence != "N/A":
 								protein_sequence = seq_obj.translate(table=11)
@@ -880,7 +885,7 @@ def main():
 			seq_dict[in_file] = {"species":"","contigs":{},"file_name":file_name}			
 			blast_species = "hinfluenzae"			
 			blast_dir = os.path.join(ABS_PATH,main_blast_dir,blast_species)		
-			with open(os.path.join(working_dir,file_name),"rU") as f:							
+			with open(os.path.join(working_dir,file_name),"r") as f:							
 				for seq_record in SeqIO.parse(f,"fasta"):
 					id = seq_record.id					
 					if id not in seq_dict[in_file]["contigs"]:
